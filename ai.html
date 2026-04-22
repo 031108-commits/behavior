@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <title>AI 分析 - 建构游戏行为记录器</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="images/icon-192.png">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>AI 分析</h1>
+    
+    <!-- 日期范围选择 -->
+    <div class="date-range">
+      <div class="date-input-group">
+        <label for="startDate">开始日期：</label>
+        <input type="date" id="startDate">
+      </div>
+      <div class="date-input-group">
+        <label for="endDate">结束日期：</label>
+        <input type="date" id="endDate">
+      </div>
+    </div>
+    
+    <!-- 幼儿筛选器 -->
+    <div class="filter-section">
+      <h3>选择幼儿：</h3>
+      <div class="student-filter" id="studentsFilter">
+        <!-- 幼儿选项将通过 JavaScript 动态生成 -->
+      </div>
+    </div>
+    
+    <!-- API Key 输入 -->
+    <div class="api-key-section" style="margin: 20px 0;">
+      <label for="apiKey" style="display: block; margin-bottom: 8px;">DeepSeek API Key：</label>
+      <input type="password" id="apiKey" placeholder="请输入 API Key" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+      <p style="font-size: 12px; color: #666; margin-top: 5px;">API Key 仅在本地使用，不会被存储</p>
+    </div>
+    
+    <!-- 教师自定义输入 -->
+    <div class="teacher-input-section" style="margin: 20px 0;">
+      <label for="teacherQuestion" style="display: block; margin-bottom: 8px;">分析需求：</label>
+      <textarea id="teacherQuestion" placeholder="输入您的分析需求，例如：请重点分析幼儿的合作能力发展……" style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background-color: #fafafa; resize: vertical;"></textarea>
+    </div>
+    
+    <!-- 分析按钮 -->
+    <button class="analyze-btn" id="aiAnalyzeBtn" style="width: 100%; padding: 12px; background-color: #4A90D9; color: white; border: none; border-radius: 4px; font-size: 16px; margin: 20px 0;">🤖 开始分析</button>
+    
+    <!-- 分析结果展示区 -->
+    <div class="ai-result" id="aiResult" style="margin: 20px 0; padding: 15px; background-color: #f0f7ff; border: 1px solid #d0e1f5; border-radius: 8px; min-height: 200px;">
+      <p>点击上方按钮开始 AI 分析</p>
+    </div>
+  </div>
+  
+  <footer>
+    <a href="index.html" class="footer-btn">
+      <span class="footer-icon">📝</span>
+      <span>记录</span>
+    </a>
+    <a href="history.html" class="footer-btn">
+      <span class="footer-icon">📊</span>
+      <span>统计</span>
+    </a>
+    <a href="class.html" class="footer-btn">
+      <span class="footer-icon">👥</span>
+      <span>班级</span>
+    </a>
+    <a href="ai.html" class="footer-btn active">
+      <span class="footer-icon">🤖</span>
+      <span>AI分析</span>
+    </a>
+  </footer>
+  
+  <script src="js/app.js"></script>
+  <script src="js/ai.js"></script>
+</body>
+</html>

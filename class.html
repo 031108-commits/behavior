@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <title>班级管理 - 建构游戏行为记录器</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mini.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>班级管理</h1>
+  </header>
+  
+  <div class="container">
+    <div class="import-section">
+      <h3>批量导入</h3>
+      <input type="file" id="fileInput" accept=".xlsx,.csv">
+      <div style="margin-top: 8px;">
+        <label><input type="radio" name="importMode" value="append" checked> 追加</label>
+        <label style="margin-left: 16px;"><input type="radio" name="importMode" value="override"> 覆盖</label>
+      </div>
+    </div>
+    
+    <h2>幼儿列表</h2>
+    <div class="student-list" id="studentList">
+      <!-- 幼儿列表将通过 JavaScript 动态生成 -->
+    </div>
+    
+    <!-- 数据管理区域 -->
+    <div class="data-management" style="margin-top: 30px; background-color: #f8f9fc; border: 1px dashed #ccc; border-radius: 8px; padding: 15px;">
+      <h3 style="margin-top: 0; display: flex; align-items: center; cursor: pointer;" id="dataManagementToggle">
+        ⚙️ 数据管理
+      </h3>
+      <div class="data-management-content" id="dataManagementContent" style="margin-top: 15px;">
+        <button class="export-btn" id="backupBtn" style="width: 100%; margin-bottom: 10px;">📤 备份所有数据</button>
+        <button class="export-btn" id="restoreBtn" style="width: 100%; margin-bottom: 10px;">📥 恢复数据</button>
+        <p style="color: #e74c3c; font-size: 12px; margin: 10px 0 0 0;">⚠️ 恢复数据将覆盖当前所有记录，建议先备份。</p>
+      </div>
+    </div>
+  </div>
+  
+  <button class="add-student-btn" id="addStudentBtn">+</button>
+  
+  <!-- 添加幼儿模态框 -->
+  <div class="modal" id="addModal" style="display: none;">
+    <div class="modal-content">
+      <h2>添加幼儿</h2>
+      <div class="form-group">
+        <label for="studentName">姓名</label>
+        <input type="text" id="studentName" placeholder="请输入姓名">
+      </div>
+      <div class="form-group">
+        <label for="studentGender">性别</label>
+        <select id="studentGender">
+          <option value="男">男</option>
+          <option value="女">女</option>
+        </select>
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-btn secondary" id="cancelBtn">取消</button>
+        <button class="modal-btn primary" id="confirmAddBtn">确定</button>
+      </div>
+    </div>
+  </div>
+  
+  <footer>
+    <a href="index.html" class="footer-btn">
+      <span class="footer-icon">📝</span>
+      <span>记录</span>
+    </a>
+    <a href="history.html" class="footer-btn">
+      <span class="footer-icon">📊</span>
+      <span>统计</span>
+    </a>
+    <a href="class.html" class="footer-btn active">
+      <span class="footer-icon">👥</span>
+      <span>班级</span>
+    </a>
+    <a href="ai.html" class="footer-btn">
+      <span class="footer-icon">🤖</span>
+      <span>AI分析</span>
+    </a>
+  </footer>
+  
+  <script src="js/app.js"></script>
+  <script src="js/class.js"></script>
+</body>
+</html>

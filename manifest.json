@@ -1,0 +1,21 @@
+{
+  "name": "建构游戏行为记录器",
+  "short_name": "游戏记录器",
+  "description": "幼儿园老师观察记录幼儿在建构区的游戏行为",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4A90D9",
+  "icons": [
+    {
+      "src": "images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
