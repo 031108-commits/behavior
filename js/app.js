@@ -1,81 +1,60 @@
-// 行为指标体系
+// 行为指标体系 - CLASS课堂互动评估量表
 const behaviorSystem = {
-  "主动性": {
-    "自我概念": [
-      { name: "说出意愿", score: 1 },
-      { name: "表达情绪", score: 2 },
-      { name: "独立完成", score: 3 },
-      { name: "尝试重复", score: 4 },
-      { name: "描述作品", score: 5 },
-      { name: "对比他人", score: 6 },
-      { name: "制定目标", score: 7 }
+  "❤️ 情感支持": {
+    "积极氛围": [
+      { id: 'pc_1', name: "温暖尊重", score: 1, fullDesc: '教师与幼儿之间表现出温暖、尊重的关系' },
+      { id: 'pc_2', name: "积极情感", score: 2, fullDesc: '师幼间有积极的情感交流（微笑、笑声、鼓励性语言）' },
+      { id: 'pc_3', name: "尊重接纳", score: 3, fullDesc: '教师对幼儿表现出尊重和接纳' },
+      { id: 'pc_4', name: "同伴支持", score: 4, fullDesc: '教师鼓励幼儿之间的积极互动和相互支持' }
     ],
-    "选取材料": [
-      { name: "随意抓取", score: 1 },
-      { name: "按指令选", score: 2 },
-      { name: "自主选材", score: 3 },
-      { name: "功能选材", score: 4 },
-      { name: "美感组合", score: 5 },
-      { name: "创新用材", score: 6 },
-      { name: "规划分享", score: 7 }
+    "消极氛围（反向）": [
+      { id: 'nc_1', name: "易怒否定", score: 1, fullDesc: '教师表现出易怒、严厉或否定性的情绪' },
+      { id: 'nc_2', name: "威胁控制", score: 2, fullDesc: '教师对幼儿使用威胁、讽刺或严厉的控制' },
+      { id: 'nc_3', name: "同伴冲突", score: 3, fullDesc: '幼儿之间出现严重的消极互动' }
+    ],
+    "教师敏感性": [
+      { id: 'ts_1', name: "察觉需求", score: 1, fullDesc: '教师能够及时察觉幼儿的需求（安全、安慰、帮助）' },
+      { id: 'ts_2', name: "个别支持", score: 2, fullDesc: '教师提供个别化的安慰、保证和支持' },
+      { id: 'ts_3', name: "自由求助", score: 3, fullDesc: '幼儿能够自由地寻求教师的支持和帮助' }
+    ],
+    "尊重幼儿观点": [
+      { id: 'rs_1', name: "鼓励表达", score: 1, fullDesc: '教师鼓励幼儿表达自己的想法和观点' },
+      { id: 'rs_2', name: "提供选择", score: 2, fullDesc: '教师为幼儿提供选择的机会' },
+      { id: 'rs_3', name: "尊重自主", score: 3, fullDesc: '教师在活动中尊重幼儿的自主性和领导力' }
     ]
   },
-  "建构能力": {
-    "运用建构方式": [
-      { name: "平铺", score: 1 },
-      { name: "垒高", score: 2 },
-      { name: "架空", score: 3 },
-      { name: "围合", score: 4 },
-      { name: "模式", score: 5 },
-      { name: "综合建构", score: 6 },
-      { name: "创意主题", score: 7 }
+  "📋 班级管理": {
+    "行为管理": [
+      { id: 'bm_1', name: "清晰规则", score: 1, fullDesc: '教师清晰地陈述行为期望和规则' },
+      { id: 'bm_2', name: "有效预防", score: 2, fullDesc: '教师能够有效防止和处理不当行为' },
+      { id: 'bm_3', name: "幼儿自律", score: 3, fullDesc: '幼儿表现出恰当的行为和自控能力' }
     ],
-    "再现建构主题": [
-      { name: "无主题", score: 1 },
-      { name: "想象搭建", score: 2 },
-      { name: "参照实物", score: 3 },
-      { name: "参照平面图", score: 4 },
-      { name: "简单主题", score: 5 },
-      { name: "复杂主题", score: 6 },
-      { name: "自主设计", score: 7 }
+    "效率": [
+      { id: 'pr_1', name: "准备充分", score: 1, fullDesc: '教师为活动做好准备，过渡时间短' },
+      { id: 'pr_2', name: "清楚规则", score: 2, fullDesc: '教师和幼儿都知道应该做什么，很少混乱' },
+      { id: 'pr_3', name: "节奏适中", score: 3, fullDesc: '活动节奏适中，没有长时间的等待' }
     ],
-    "合作交往": [
-      { name: "协商分工", score: 1 },
-      { name: "遵守规则", score: 2 },
-      { name: "帮助同伴", score: 3 },
-      { name: "创新建议", score: 4 },
-      { name: "协调冲突", score: 5 },
-      { name: "领导团队", score: 6 },
-      { name: "反思改进", score: 7 }
-    ],
-    "游戏持续性": [
-      { name: "＜5分钟", score: 1 },
-      { name: "6~9分钟", score: 2 },
-      { name: "10~14分钟", score: 3 },
-      { name: "15~19分钟", score: 4 },
-      { name: "20~24分钟", score: 5 },
-      { name: "25~29分钟", score: 6 },
-      { name: "≥30分钟", score: 7 }
-    ],
-    "问题解决": [
-      { name: "寻求成人", score: 1 },
-      { name: "同伴商量", score: 2 },
-      { name: "独立尝试", score: 3 },
-      { name: "提出方案", score: 4 },
-      { name: "灵活调整", score: 5 },
-      { name: "创造性解", score: 6 },
-      { name: "总结经验", score: 7 }
+    "教学活动形式": [
+      { id: 'ilf_1', name: "多元方式", score: 1, fullDesc: '教师使用多种方式（讲解、示范、提问）让幼儿参与' },
+      { id: 'ilf_2', name: "材料激发", score: 2, fullDesc: '教师有效使用材料和教具激发幼儿兴趣' },
+      { id: 'ilf_3', name: "持续参与", score: 3, fullDesc: '幼儿对活动表现出持续的兴趣和参与' }
     ]
   },
-  "自我管理": {
-    "分享交流": [
-      { name: "无交流", score: 1 },
-      { name: "单词回应", score: 2 },
-      { name: "简单描述", score: 3 },
-      { name: "细节补充", score: 4 },
-      { name: "完整表达", score: 5 },
-      { name: "主动提问", score: 6 },
-      { name: "深度共情", score: 7 }
+  "🧠 教育支持": {
+    "认知发展": [
+      { id: 'cd_1', name: "分析推理", score: 1, fullDesc: '教师鼓励幼儿分析和推理（为什么？怎么样？）' },
+      { id: 'cd_2', name: "联系经验", score: 2, fullDesc: '教师将活动与幼儿已有经验相联系' },
+      { id: 'cd_3', name: "丰富解释", score: 3, fullDesc: '教师提供丰富的解释和扩展性信息' }
+    ],
+    "反馈质量": [
+      { id: 'qf_1', name: "具体反馈", score: 1, fullDesc: '教师给予幼儿具体的、过程性的反馈' },
+      { id: 'qf_2', name: "追问扩展", score: 2, fullDesc: '教师通过追问帮助幼儿扩展和深化理解' },
+      { id: 'qf_3', name: "鼓励解释", score: 3, fullDesc: '教师鼓励幼儿解释自己的思考和解决问题的过程' }
+    ],
+    "语言示范": [
+      { id: 'lm_1', name: "丰富词汇", score: 1, fullDesc: '教师使用丰富的词汇和语言描述' },
+      { id: 'lm_2', name: "往复对话", score: 2, fullDesc: '教师与幼儿进行频繁的、往复的对话交流' },
+      { id: 'lm_3', name: "开放提问", score: 3, fullDesc: '教师通过开放式问题扩展幼儿的语言表达' }
     ]
   }
 };

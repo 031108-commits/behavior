@@ -1,264 +1,426 @@
-// 初始化应用
+// AI 视频分析功能
 window.addEventListener('DOMContentLoaded', function() {
-  initDateRange();
-  loadStudentsFilter();
-  setupEventListeners();
+  initChildSelector();
+  initDatePicker();
+  initVideoUpload();
+  initParamsToggle();
+  initAnalyzeButton();
+  initTabSwitching();
 });
 
 // 全局变量
-let selectedStudentId = 0; // 0 表示全班
-let currentTableData = [];
-let dateHeaders = [];
+let selectedChildId = null;
+let videoFile = null;
 
-// 初始化日期范围
-function initDateRange() {
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 6); // 默认最近7天
+// ============ 幼儿选择器 ============
+function initChildSelector() {
+  const childScroll = document.getElementById('childScroll');
+  if (!childScroll) return;
   
-  const startDateInput = document.getElementById('startDate');
-  const endDateInput = document.getElementById('endDate');
+  childScroll.innerHTML = '';
   
-  if (!startDateInput || !endDateInput) {
-    console.warn('日期选择器元素不存在');
-    return;
-  }
-  
-  startDateInput.valueAsDate = startDate;
-  endDateInput.valueAsDate = endDate;
-}
-
-// 加载幼儿筛选器
-function loadStudentsFilter() {
-  const filterContainer = document.getElementById('studentsFilter');
-  if (!filterContainer) return;
-  
-  // 清空容器
-  filterContainer.innerHTML = '';
-  
-  // 添加全班选项
-  const allStudentsOption = document.createElement('div');
-  allStudentsOption.className = 'filter-item active';
-  allStudentsOption.dataset.id = '0';
-  allStudentsOption.innerHTML = '<span>全班幼儿</span>';
-  allStudentsOption.addEventListener('click', function() {
+  // 添加"未选择"选项
+  const noSelectItem = document.createElement('div');
+  noSelectItem.className = 'child-item';
+  noSelectItem.dataset.id = '';
+  noSelectItem.innerHTML = '<span class="child-avatar">❓</span><span class="child-name">未选择</span>';
+  noSelectItem.addEventListener('click', function() {
     App.vibrate();
-    // 移除其他选中状态
-    document.querySelectorAll('.filter-item').forEach(item => item.classList.remove('active'));
-    // 添加当前选中状态
-    this.classList.add('active');
-    selectedStudentId = 0;
+    selectChild(null, this);
   });
-  filterContainer.appendChild(allStudentsOption);
+  childScroll.appendChild(noSelectItem);
   
   // 添加幼儿选项
   const students = App.getClassStudents();
   students.forEach(student => {
-    const studentItem = document.createElement('div');
-    studentItem.className = 'filter-item';
-    studentItem.dataset.id = student.id;
-    studentItem.innerHTML = `
-      <span>${student.name}</span>
-      <span class="gender-icon">${student.gender === '男' ? '👦' : '👧'}</span>
+    const childItem = document.createElement('div');
+    childItem.className = 'child-item';
+    childItem.dataset.id = student.id;
+    childItem.innerHTML = `
+      <span class="child-avatar">${student.gender === '男' ? '👦' : '👧'}</span>
+      <span class="child-name">${student.name}</span>
     `;
-    studentItem.addEventListener('click', function() {
+    childItem.addEventListener('click', function() {
       App.vibrate();
-      // 移除其他选中状态
-      document.querySelectorAll('.filter-item').forEach(item => item.classList.remove('active'));
-      // 添加当前选中状态
-      this.classList.add('active');
-      selectedStudentId = parseInt(this.dataset.id);
+      selectChild(student.id, this);
     });
-    filterContainer.appendChild(studentItem);
+    childScroll.appendChild(childItem);
   });
 }
 
-// 设置事件监听器
-function setupEventListeners() {
-  const aiAnalyzeBtn = document.getElementById('aiAnalyzeBtn');
-  if (aiAnalyzeBtn) {
-    aiAnalyzeBtn.addEventListener('click', startAnalysis);
+function selectChild(childId, element) {
+  document.querySelectorAll('.child-item').forEach(item => item.classList.remove('active'));
+  if (element) {
+    element.classList.add('active');
+  }
+  selectedChildId = childId;
+}
+
+// ============ 日期选择器 ============
+function initDatePicker() {
+  const dateInput = document.getElementById('observationDate');
+  if (!dateInput) return;
+  
+  const today = new Date();
+  dateInput.valueAsDate = today;
+}
+
+// ============ 视频上传 ============
+function initVideoUpload() {
+  const uploadArea = document.getElementById('videoUploadArea');
+  const videoInput = document.getElementById('videoInput');
+  const removeBtn = document.getElementById('removeVideoBtn');
+  
+  if (!uploadArea || !videoInput) return;
+  
+  // 点击上传
+  uploadArea.addEventListener('click', function() {
+    videoInput.click();
+  });
+  
+  // 文件选择
+  videoInput.addEventListener('change', function(e) {
+    if (e.target.files && e.target.files[0]) {
+      handleVideoFile(e.target.files[0]);
+    }
+  });
+  
+  // 拖拽上传
+  uploadArea.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+  });
+  
+  uploadArea.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+  });
+  
+  uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('video/')) {
+        handleVideoFile(file);
+      } else {
+        alert('请上传视频文件');
+      }
+    }
+  });
+  
+  // 移除视频
+  if (removeBtn) {
+    removeBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      removeVideo();
+    });
   }
 }
 
-// 开始分析
-function startAnalysis() {
+function handleVideoFile(file) {
+  videoFile = file;
+  
+  const uploadArea = document.getElementById('videoUploadArea');
+  const videoPreview = document.getElementById('videoPreview');
+  const previewVideo = document.getElementById('previewVideo');
+  
+  uploadArea.style.display = 'none';
+  videoPreview.style.display = 'block';
+  
+  const url = URL.createObjectURL(file);
+  previewVideo.src = url;
+}
+
+function removeVideo() {
+  videoFile = null;
+  
+  const uploadArea = document.getElementById('videoUploadArea');
+  const videoPreview = document.getElementById('videoPreview');
+  const videoInput = document.getElementById('videoInput');
+  const previewVideo = document.getElementById('previewVideo');
+  
+  uploadArea.style.display = 'flex';
+  videoPreview.style.display = 'none';
+  previewVideo.src = '';
+  if (videoInput) videoInput.value = '';
+}
+
+// ============ 参数折叠面板 ============
+function initParamsToggle() {
+  const toggles = [
+    { header: 'toggleApiToken', content: 'apiTokenContent' },
+    { header: 'toggleWorkflowId', content: 'workflowIdContent' }
+  ];
+  
+  toggles.forEach(toggle => {
+    const header = document.getElementById(toggle.header);
+    const content = document.getElementById(toggle.content);
+    
+    if (header && content) {
+      header.addEventListener('click', function() {
+        App.vibrate();
+        const isHidden = content.style.display === 'none';
+        content.style.display = isHidden ? 'block' : 'none';
+        header.querySelector('.toggle-arrow').textContent = isHidden ? '▲' : '▼';
+      });
+    }
+  });
+}
+
+// ============ 分析按钮 ============
+function initAnalyzeButton() {
+  const btn = document.getElementById('startAnalyzeBtn');
+  if (btn) {
+    btn.addEventListener('click', startAnalysis);
+  }
+}
+
+// ============ 选项卡切换 ============
+function initTabSwitching() {
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      App.vibrate();
+      
+      // 切换按钮状态
+      tabBtns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      
+      // 切换内容
+      const tabName = this.dataset.tab;
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+      });
+      document.getElementById('tab' + capitalize(tabName)).style.display = 'block';
+    });
+  });
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ============ 开始分析流程 ============
+async function startAnalysis() {
   App.vibrate();
   
-  // 获取 API Key
-  const apiKey = document.getElementById('apiKey').value;
-  if (!apiKey) {
-    alert('请输入 DeepSeek API Key');
+  // 验证视频
+  if (!videoFile) {
+    alert('请先上传视频');
     return;
   }
   
-  // 获取日期范围
-  const startDate = document.getElementById('startDate').value;
-  const endDate = document.getElementById('endDate').value;
-  
-  if (!startDate || !endDate) {
-    alert('请选择日期范围');
+  // 验证 API Token
+  const apiToken = document.getElementById('apiToken').value;
+  if (!apiToken) {
+    alert('请输入 API Token');
     return;
   }
   
-  // 显示加载状态
-  const aiResult = document.getElementById('aiResult');
-  aiResult.innerHTML = '<p>AI 正在分析中，请稍候...</p>';
-  
-  // 收集数据
-  const records = collectRecords(startDate, endDate, selectedStudentId);
-  
-  if (records.length === 0) {
-    aiResult.innerHTML = '<p>所选日期范围内无数据</p>';
+  // 验证工作流 ID
+  const workflowId = document.getElementById('workflowId').value;
+  if (!workflowId) {
+    alert('请输入工作流 ID');
     return;
   }
   
-  // 计算二级维度得分
-  const dimensionScores = calculateDimensionScores(records);
+  // 获取参数
+  const gameType = document.getElementById('gameTypeSelect').value;
+  const observationDate = document.getElementById('observationDate').value;
   
-  // 保存数据到全局变量
-  currentTableData = dimensionScores;
+  // 显示进度
+  showProgress();
   
-  // 生成日期表头
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  dateHeaders = [];
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    dateHeaders.push(`${month}-${day}`);
+  try {
+    // 调用扣子工作流（直接上传视频）
+    updateProgress('正在上传视频...', '');
+    const result = await callCozeWorkflow(
+      apiToken,
+      workflowId,
+      videoFile,
+      gameType,
+      `观察日期: ${observationDate}, 幼儿ID: ${selectedChildId || '未指定'}`
+    );
+    
+    // 展示结果
+    hideProgress();
+    displayResults(result);
+    
+  } catch (error) {
+    hideProgress();
+    alert('分析失败: ' + error.message);
+    console.error(error);
   }
-  
-  // 整理数据摘要
-  let studentName = '全班幼儿';
-  if (selectedStudentId !== 0) {
-    const student = App.getClassStudents().find(s => s.id === selectedStudentId);
-    if (student) {
-      studentName = student.name;
-    }
-  }
-  
-  const dataSummary = {
-    dateRange: `${startDate} 至 ${endDate}`,
-    student: studentName,
-    dimensions: dimensionScores
-  };
-  
-  // 调用 AI 分析
-  callAIAnalysis(apiKey, dataSummary);
 }
 
-// 收集记录
-function collectRecords(startDate, endDate, studentId) {
-  const records = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+// ============ 扣子工作流 API（直接上传视频） ============
+async function callCozeWorkflow(apiToken, workflowId, videoFile, gameType, observationNotes) {
+  // 创建 FormData 直接上传视频文件
+  const formData = new FormData();
+  formData.append('file', videoFile);  // 视频文件
+  formData.append('workflow_id', workflowId);
+  formData.append('parameters', JSON.stringify({
+    game_type: gameType,
+    observation_notes: observationNotes
+  }));
   
-  // 遍历日期范围内的所有日期
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dateStr = App.formatDate(d);
-    const dayRecords = App.getRecordsByDate(dateStr);
-    
-    // 过滤幼儿
-    if (studentId !== 0) {
-      const filteredRecords = dayRecords.filter(record => record.studentId === studentId);
-      records.push(...filteredRecords);
-    } else {
-      records.push(...dayRecords);
-    }
-  }
+  updateProgress('正在等待 AI 分析...', '');
   
-  return records;
-}
-
-// 计算二级维度得分
-function calculateDimensionScores(records) {
-  // 获取所有二级维度
-  const dimensions = App.getAllSecondaryDimensions();
-  const dimensionScores = [];
-  
-  dimensions.forEach(dimension => {
-    let score = 0;
-    
-    records.forEach(record => {
-      // 查找记录对应的二级维度
-      for (const primary in App.behaviorSystem) {
-        if (App.behaviorSystem[primary][dimension]) {
-          const behaviors = App.behaviorSystem[primary][dimension];
-          if (behaviors.some(b => b.name === record.behaviorName)) {
-            score += (record.score || 1);
-            break;
-          }
-        }
-      }
-    });
-    
-    dimensionScores.push({
-      behavior: dimension,
-      score: score
-    });
-  });
-  
-  return dimensionScores;
-}
-
-// 调用 AI 分析
-function callAIAnalysis(apiKey, dataSummary) {
-  const aiResult = document.getElementById('aiResult');
-  
-  // 获取教师输入的分析需求
-  const teacherQuestion = document.getElementById('teacherQuestion').value || '请对以上数据进行综合分析，指出主要发现和教育建议。';
-  
-  /* !!!安全警告：此代码仅为本地演示，API Key 绝不能明文提交到公开仓库。如需部署，请使用后端代理或环境变量。 */
-  
-  fetch('https://api.deepseek.com/v1/chat/completions', {
+  const response = await fetch('https://api.coze.cn/v1/workflow/run', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'Authorization': 'Bearer ' + apiToken
+      // 注意：不设置 Content-Type，让浏览器自动设置 multipart/form-data
     },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [
-        {
-          role: 'system',
-          content: '你是一名资深的幼儿教育专家，擅长分析建构游戏中的儿童行为数据。请根据用户提供的数据和需求，生成一份专业、温暖、有指导意义的分析报告。'
-        },
-        {
-          role: 'user',
-          content: `你是一名幼儿教育专家。以下是在 ${dataSummary.dateRange} 期间，${dataSummary.student} 的建构游戏行为数据：\n${JSON.stringify(dataSummary.dimensions)}\n\n老师提出的分析需求是：${teacherQuestion}\n\n请结合数据和老师的需求，生成一份专业的分析报告。`
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 800
-    })
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      const analysis = data.choices[0].message.content;
-      aiResult.innerHTML = `<p>${analysis.replace(/\n/g, '<br>')}</p>`;
-    } else {
-      throw new Error('Invalid API response');
-    }
-  })
-  .catch(error => {
-    console.error('AI analysis error:', error);
-    let errorMessage = '分析失败，请稍后重试';
-    
-    if (error.message.includes('401')) {
-      errorMessage = 'API 密钥错误，请检查配置';
-    } else if (error.message.includes('429')) {
-      errorMessage = '请求过于频繁，请稍后再试';
-    } else if (error.message.includes('500')) {
-      errorMessage = '服务器错误，请稍后重试';
-    }
-    
-    aiResult.innerHTML = `<p style="color: #dc3545;">${errorMessage}</p>`;
+    body: formData
   });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  
+  if (data.code !== 0) {
+    throw new Error(data.msg || '工作流执行失败');
+  }
+  
+  // 返回工作流结果
+  return data.data;
+}
+
+// ============ 进度显示 ============
+function showProgress() {
+  const progressSection = document.getElementById('progressSection');
+  const resultSection = document.getElementById('resultSection');
+  const analyzeBtn = document.getElementById('startAnalyzeBtn');
+  
+  if (progressSection) progressSection.style.display = 'flex';
+  if (resultSection) resultSection.style.display = 'none';
+  if (analyzeBtn) analyzeBtn.disabled = true;
+}
+
+function hideProgress() {
+  const progressSection = document.getElementById('progressSection');
+  const analyzeBtn = document.getElementById('startAnalyzeBtn');
+  
+  if (progressSection) progressSection.style.display = 'none';
+  if (analyzeBtn) analyzeBtn.disabled = false;
+}
+
+function updateProgress(text, detail) {
+  const progressText = document.getElementById('progressText');
+  const progressDetail = document.getElementById('progressDetail');
+  
+  if (progressText) progressText.textContent = text;
+  if (progressDetail) progressDetail.textContent = detail;
+}
+
+// ============ 结果展示 ============
+function displayResults(result) {
+  const resultSection = document.getElementById('resultSection');
+  if (resultSection) resultSection.style.display = 'block';
+  
+  // 解析工作流返回的内容
+  const output = result.outputs || result;
+  const content = typeof output === 'string' ? output : JSON.stringify(output);
+  
+  // 提取检核表和分析报告
+  const parts = extractReportParts(content);
+  
+  // 渲染检核表
+  renderChecklistTable(parts.checklist);
+  
+  // 渲染分析报告
+  const reportContent = document.getElementById('reportContent');
+  if (reportContent) {
+    reportContent.innerHTML = `<div class="report-text">${parts.report.replace(/\n/g, '<br>')}</div>`;
+  }
+  
+  // 渲染谈话建议
+  const suggestionsContent = document.getElementById('suggestionsContent');
+  if (suggestionsContent) {
+    suggestionsContent.innerHTML = `<div class="suggestions-text">${parts.suggestions.replace(/\n/g, '<br>')}</div>`;
+  }
+}
+
+function extractReportParts(content) {
+  let checklist = '';
+  let report = '';
+  let suggestions = '';
+  
+  // 查找 Markdown 表格（检核表）
+  const tableMatch = content.match(/(\|.+\|[\s\S]*?(?=\n\n|\n##|$))/);
+  if (tableMatch) {
+    checklist = tableMatch[0];
+  }
+  
+  // 查找"谈话建议"或"建议"部分
+  const suggestionsMatch = content.match(/(?:谈话建议|建议|Recommendations?)[:：]?\s*([\s\S]*?)(?=\n##|$)/i);
+  if (suggestionsMatch) {
+    suggestions = suggestionsMatch[1];
+  }
+  
+  // 剩余部分作为分析报告
+  if (tableMatch) {
+    report = content.replace(tableMatch[0], '').replace(suggestionsMatch ? suggestionsMatch[0] : '', '');
+  } else {
+    report = content;
+  }
+  
+  return { checklist, report, suggestions: suggestions || '暂无建议' };
+}
+
+// ============ Markdown 表格渲染 ============
+function markdownToHtmlTable(mdText) {
+  const lines = mdText.trim().split('\n');
+  if (lines.length < 2) return '';
+  
+  let html = '<thead><tr>';
+  let bodyRows = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || !line.startsWith('|')) continue;
+    
+    const cells = line.split('|').filter(cell => cell.trim() !== '');
+    
+    if (i === 0) {
+      cells.forEach(cell => {
+        html += `<th>${escapeHtml(cell.trim())}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+    } else if (line.includes('---')) {
+      continue;
+    } else {
+      const row = '<tr>' + cells.map(cell => `<td>${escapeHtml(cell.trim())}</td>`).join('') + '</tr>';
+      bodyRows.push(row);
+    }
+  }
+  
+  html += bodyRows.join('') + '</tbody>';
+  return html;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function renderChecklistTable(markdown) {
+  const table = document.getElementById('checklistTable');
+  if (!table) return;
+  
+  if (!markdown || markdown.trim() === '') {
+    table.innerHTML = '<tbody><tr><td>暂无检核表数据</td></tr></tbody>';
+    return;
+  }
+  
+  const html = markdownToHtmlTable(markdown);
+  table.innerHTML = html;
 }

@@ -7,51 +7,109 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="images/icon-192.png">
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>AI 分析</h1>
+    <h1>AI 视频分析</h1>
     
-    <!-- 日期范围选择 -->
-    <div class="date-range">
-      <div class="date-input-group">
-        <label for="startDate">开始日期：</label>
-        <input type="date" id="startDate">
+    <!-- 幼儿选择器 + 日期选择器 -->
+    <div class="child-selector-section">
+      <div class="child-scroll" id="childScroll">
+        <!-- 幼儿头像将通过 JS 动态生成 -->
       </div>
-      <div class="date-input-group">
-        <label for="endDate">结束日期：</label>
-        <input type="date" id="endDate">
+      <div class="date-picker-row">
+        <input type="date" id="observationDate">
       </div>
     </div>
     
-    <!-- 幼儿筛选器 -->
-    <div class="filter-section">
-      <h3>选择幼儿：</h3>
-      <div class="student-filter" id="studentsFilter">
-        <!-- 幼儿选项将通过 JavaScript 动态生成 -->
+    <!-- 视频上传区 -->
+    <div class="video-upload-section" id="videoUploadSection">
+      <div class="video-upload-area" id="videoUploadArea">
+        <div class="upload-icon">🎬</div>
+        <p class="upload-text">点击或拖拽上传视频</p>
+        <p class="upload-hint">支持 MP4、MOV、AVI 格式</p>
+        <input type="file" id="videoInput" accept="video/*" hidden>
+      </div>
+      <div class="video-preview" id="videoPreview" style="display: none;">
+        <video id="previewVideo" controls></video>
+        <button class="remove-video-btn" id="removeVideoBtn">×</button>
       </div>
     </div>
     
-    <!-- API Key 输入 -->
-    <div class="api-key-section" style="margin: 20px 0;">
-      <label for="apiKey" style="display: block; margin-bottom: 8px;">DeepSeek API Key：</label>
-      <input type="password" id="apiKey" placeholder="请输入 API Key" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-      <p style="font-size: 12px; color: #666; margin-top: 5px;">API Key 仅在本地使用，不会被存储</p>
+    <!-- 分析参数区 -->
+    <div class="params-section">
+      <div class="param-card">
+        <label class="param-label">游戏类型</label>
+        <select id="gameTypeSelect" class="param-select">
+          <option value="建构游戏">建构游戏</option>
+          <option value="角色游戏">角色游戏</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      
+      <div class="param-card toggle-card">
+        <div class="toggle-header" id="toggleApiToken">
+          <span class="toggle-icon">🔑</span>
+          <span>设置 API Token</span>
+          <span class="toggle-arrow">▼</span>
+        </div>
+        <div class="toggle-content" id="apiTokenContent" style="display: none;">
+          <input type="password" id="apiToken" placeholder="输入 API Token" class="param-input">
+        </div>
+      </div>
+      
+      <div class="param-card toggle-card">
+        <div class="toggle-header" id="toggleWorkflowId">
+          <span class="toggle-icon">⚙️</span>
+          <span>设置工作流 ID</span>
+          <span class="toggle-arrow">▼</span>
+        </div>
+        <div class="toggle-content" id="workflowIdContent" style="display: none;">
+          <input type="text" id="workflowId" placeholder="输入工作流 ID" class="param-input">
+          <p class="param-hint">工作流 ID 可在扣子平台获取</p>
+        </div>
+      </div>
     </div>
     
-    <!-- 教师自定义输入 -->
-    <div class="teacher-input-section" style="margin: 20px 0;">
-      <label for="teacherQuestion" style="display: block; margin-bottom: 8px;">分析需求：</label>
-      <textarea id="teacherQuestion" placeholder="输入您的分析需求，例如：请重点分析幼儿的合作能力发展……" style="width: 100%; min-height: 80px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background-color: #fafafa; resize: vertical;"></textarea>
+    <!-- 开始分析按钮 -->
+    <button class="analyze-btn" id="startAnalyzeBtn">
+      <span class="btn-icon">🚀</span>
+      <span>开始分析</span>
+    </button>
+    
+    <!-- 进度显示区 -->
+    <div class="progress-section" id="progressSection" style="display: none;">
+      <div class="progress-content">
+        <div class="spinner"></div>
+        <p class="progress-text" id="progressText">正在上传视频...</p>
+        <p class="progress-detail" id="progressDetail"></p>
+      </div>
     </div>
     
-    <!-- 分析按钮 -->
-    <button class="analyze-btn" id="aiAnalyzeBtn" style="width: 100%; padding: 12px; background-color: #4A90D9; color: white; border: none; border-radius: 4px; font-size: 16px; margin: 20px 0;">🤖 开始分析</button>
-    
-    <!-- 分析结果展示区 -->
-    <div class="ai-result" id="aiResult" style="margin: 20px 0; padding: 15px; background-color: #f0f7ff; border: 1px solid #d0e1f5; border-radius: 8px; min-height: 200px;">
-      <p>点击上方按钮开始 AI 分析</p>
+    <!-- 结果展示区 -->
+    <div class="result-section" id="resultSection" style="display: none;">
+      <div class="result-tabs">
+        <button class="tab-btn active" data-tab="checklist">📊 检核表</button>
+        <button class="tab-btn" data-tab="report">📝 分析报告</button>
+        <button class="tab-btn" data-tab="suggestions">💬 谈话建议</button>
+      </div>
+      
+      <div class="tab-content" id="tabChecklist">
+        <div class="table-wrapper">
+          <table class="result-table" id="checklistTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="tabReport" style="display: none;">
+        <div class="report-content" id="reportContent"></div>
+      </div>
+      
+      <div class="tab-content" id="tabSuggestions" style="display: none;">
+        <div class="suggestions-content" id="suggestionsContent"></div>
+      </div>
     </div>
   </div>
   
