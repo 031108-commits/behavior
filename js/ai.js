@@ -1,426 +1,446 @@
-// AI 视频分析功能
-window.addEventListener('DOMContentLoaded', function() {
-  initChildSelector();
-  initDatePicker();
-  initVideoUpload();
-  initParamsToggle();
-  initAnalyzeButton();
-  initTabSwitching();
-});
+// AI分析页面 JavaScript
 
-// 全局变量
-let selectedChildId = null;
-let videoFile = null;
+const API_URL = 'https://api.deepseek.com/v1/chat/completions';
+const API_TIMEOUT = 30000; // 30秒超时
 
-// ============ 幼儿选择器 ============
-function initChildSelector() {
-  const childScroll = document.getElementById('childScroll');
-  if (!childScroll) return;
-  
-  childScroll.innerHTML = '';
-  
-  // 添加"未选择"选项
-  const noSelectItem = document.createElement('div');
-  noSelectItem.className = 'child-item';
-  noSelectItem.dataset.id = '';
-  noSelectItem.innerHTML = '<span class="child-avatar">❓</span><span class="child-name">未选择</span>';
-  noSelectItem.addEventListener('click', function() {
-    App.vibrate();
-    selectChild(null, this);
-  });
-  childScroll.appendChild(noSelectItem);
-  
-  // 添加幼儿选项
-  const students = App.getClassStudents();
-  students.forEach(student => {
-    const childItem = document.createElement('div');
-    childItem.className = 'child-item';
-    childItem.dataset.id = student.id;
-    childItem.innerHTML = `
-      <span class="child-avatar">${student.gender === '男' ? '👦' : '👧'}</span>
-      <span class="child-name">${student.name}</span>
-    `;
-    childItem.addEventListener('click', function() {
-      App.vibrate();
-      selectChild(student.id, this);
-    });
-    childScroll.appendChild(childItem);
-  });
-}
+let currentType = 'teacher'; // 'teacher' or 'child'
 
-function selectChild(childId, element) {
-  document.querySelectorAll('.child-item').forEach(item => item.classList.remove('active'));
-  if (element) {
-    element.classList.add('active');
+// 语音识别相关
+let recognition = null;
+let isRecording = false;
+let mediaRecorder = null;
+let audioChunks = [];
+
+// DOM元素
+const typeTabs = document.getElementById('typeTabs');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const contentInput = document.getElementById('contentInput');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const loadingSection = document.getElementById('loadingSection');
+const resultArea = document.getElementById('resultArea');
+const resultContent = document.getElementById('resultContent');
+const errorSection = document.getElementById('errorSection');
+const errorMessage = document.getElementById('errorMessage');
+const navItems = document.querySelectorAll('.nav-item');
+const recordBtn = document.getElementById('recordBtn');
+const voiceStatus = document.getElementById('voiceStatus');
+const voiceSection = document.getElementById('voiceSection');
+
+// 教师评价系统提示词
+const TEACHER_SYSTEM_PROMPT = `你是一位专业的幼儿教育观察评估专家。请根据用户提供的观察记录，对照以下评估指标进行分析评分，并以Markdown表格格式输出结果。
+
+如果是教师评价（CLASS量表），请从以下维度评分(1-7分)：积极氛围、消极氛围、教师敏感性、尊重幼儿观点、行为管理、效率、教学活动形式、认知发展、反馈质量、语言示范。
+
+请以表格形式输出评分结果，包含维度、评分(1-7)、分析说明列。`;
+
+// 幼儿评价系统提示词
+const CHILD_SYSTEM_PROMPT = `你是一位专业的幼儿教育观察评估专家。请根据用户提供的观察记录，对照以下评估指标进行分析评分，并以Markdown表格格式输出结果。
+
+如果是幼儿评价，请从以下14个领域判断行为层级(1-5分)：书面表达者、爱动手探究、艺术欣赏家、有趣的数学、探究有方法、空间探索者、自信小主人、我爱交朋友、专注坚持力、我爱幼儿园、喜欢小图书、艺术创作家、灵活小手指、阅读小能手。
+
+请以表格形式输出评分结果，包含领域、评分(1-5)、发展水平、分析说明列。`;
+
+// 初始化
+function init() {
+  checkSpeechRecognitionSupport();
+  bindEvents();
+  
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('SW registered'))
+      .catch(err => console.log('SW registration failed:', err));
   }
-  selectedChildId = childId;
 }
 
-// ============ 日期选择器 ============
-function initDatePicker() {
-  const dateInput = document.getElementById('observationDate');
-  if (!dateInput) return;
+// 检查浏览器是否支持语音识别
+function checkSpeechRecognitionSupport() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
-  const today = new Date();
-  dateInput.valueAsDate = today;
+  if (!SpeechRecognition) {
+    // 不支持语音识别，隐藏麦克风按钮
+    voiceSection.classList.add('hidden');
+    return;
+  }
+  
+  // 检查是否在安全上下文中
+  if (location.protocol === 'file:') {
+    voiceSection.classList.add('hidden');
+    return;
+  }
+  
+  // 初始化语音识别
+  initSpeechRecognition();
 }
 
-// ============ 视频上传 ============
-function initVideoUpload() {
-  const uploadArea = document.getElementById('videoUploadArea');
-  const videoInput = document.getElementById('videoInput');
-  const removeBtn = document.getElementById('removeVideoBtn');
+// 初始化语音识别实例
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   
-  if (!uploadArea || !videoInput) return;
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'zh-CN';
   
-  // 点击上传
-  uploadArea.addEventListener('click', function() {
-    videoInput.click();
-  });
+  recognition.onstart = () => {
+    isRecording = true;
+    updateRecordButtonState();
+    voiceStatus.textContent = '录音中...';
+  };
   
-  // 文件选择
-  videoInput.addEventListener('change', function(e) {
-    if (e.target.files && e.target.files[0]) {
-      handleVideoFile(e.target.files[0]);
-    }
-  });
-  
-  // 拖拽上传
-  uploadArea.addEventListener('dragover', function(e) {
-    e.preventDefault();
-    uploadArea.classList.add('dragover');
-  });
-  
-  uploadArea.addEventListener('dragleave', function(e) {
-    e.preventDefault();
-    uploadArea.classList.remove('dragover');
-  });
-  
-  uploadArea.addEventListener('drop', function(e) {
-    e.preventDefault();
-    uploadArea.classList.remove('dragover');
+  recognition.onresult = (event) => {
+    let finalText = '';
+    let interimText = '';
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('video/')) {
-        handleVideoFile(file);
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalText += transcript;
       } else {
-        alert('请上传视频文件');
+        interimText += transcript;
       }
     }
-  });
-  
-  // 移除视频
-  if (removeBtn) {
-    removeBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      removeVideo();
-    });
-  }
-}
-
-function handleVideoFile(file) {
-  videoFile = file;
-  
-  const uploadArea = document.getElementById('videoUploadArea');
-  const videoPreview = document.getElementById('videoPreview');
-  const previewVideo = document.getElementById('previewVideo');
-  
-  uploadArea.style.display = 'none';
-  videoPreview.style.display = 'block';
-  
-  const url = URL.createObjectURL(file);
-  previewVideo.src = url;
-}
-
-function removeVideo() {
-  videoFile = null;
-  
-  const uploadArea = document.getElementById('videoUploadArea');
-  const videoPreview = document.getElementById('videoPreview');
-  const videoInput = document.getElementById('videoInput');
-  const previewVideo = document.getElementById('previewVideo');
-  
-  uploadArea.style.display = 'flex';
-  videoPreview.style.display = 'none';
-  previewVideo.src = '';
-  if (videoInput) videoInput.value = '';
-}
-
-// ============ 参数折叠面板 ============
-function initParamsToggle() {
-  const toggles = [
-    { header: 'toggleApiToken', content: 'apiTokenContent' },
-    { header: 'toggleWorkflowId', content: 'workflowIdContent' }
-  ];
-  
-  toggles.forEach(toggle => {
-    const header = document.getElementById(toggle.header);
-    const content = document.getElementById(toggle.content);
     
-    if (header && content) {
-      header.addEventListener('click', function() {
-        App.vibrate();
-        const isHidden = content.style.display === 'none';
-        content.style.display = isHidden ? 'block' : 'none';
-        header.querySelector('.toggle-arrow').textContent = isHidden ? '▲' : '▼';
-      });
+    // 如果有最终确认的文本，追加到输入框
+    if (finalText) {
+      appendToContentInput(finalText);
     }
-  });
+    
+    // 更新状态显示临时文本
+    if (interimText) {
+      voiceStatus.textContent = '识别中: ' + interimText;
+    }
+  };
+  
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+    isRecording = false;
+    updateRecordButtonState();
+    
+    if (event.error === 'not-allowed') {
+      voiceStatus.textContent = '';
+      showError('麦克风权限被拒绝，请在浏览器设置中允许使用麦克风');
+    } else if (event.error === 'no-speech') {
+      voiceStatus.textContent = '未检测到语音，请重试';
+    } else {
+      voiceStatus.textContent = '';
+    }
+  };
+  
+  recognition.onend = () => {
+    isRecording = false;
+    updateRecordButtonState();
+    
+    if (voiceStatus.textContent.startsWith('识别中') || voiceStatus.textContent === '录音中...') {
+      voiceStatus.textContent = '已停止';
+    }
+  };
 }
 
-// ============ 分析按钮 ============
-function initAnalyzeButton() {
-  const btn = document.getElementById('startAnalyzeBtn');
-  if (btn) {
-    btn.addEventListener('click', startAnalysis);
+// 更新录音按钮状态
+function updateRecordButtonState() {
+  if (isRecording) {
+    recordBtn.classList.add('recording');
+    recordBtn.querySelector('.mic-icon').textContent = '⏹️';
+  } else {
+    recordBtn.classList.remove('recording');
+    recordBtn.querySelector('.mic-icon').textContent = '🎤';
   }
 }
 
-// ============ 选项卡切换 ============
-function initTabSwitching() {
-  const tabBtns = document.querySelectorAll('.tab-btn');
+// 切换录音状态
+function toggleRecording() {
+  if (!recognition) {
+    showError('您的浏览器不支持语音识别');
+    return;
+  }
   
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', function() {
-      App.vibrate();
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+// 开始录音
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      // 启动语音识别
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error('Recognition start error:', e);
+        recognition.stop();
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (e2) {
+            showError('启动语音识别失败，请刷新页面重试');
+          }
+        }, 100);
+      }
       
-      // 切换按钮状态
-      tabBtns.forEach(b => b.classList.remove('active'));
-      this.classList.add('active');
+      // 震动反馈
+      if (navigator.vibrate) {
+        navigator.vibrate(30);
+      }
+    })
+    .catch(err => {
+      console.error('获取麦克风权限失败:', err);
+      voiceStatus.textContent = '请允许麦克风权限';
+      if (err.name === 'NotAllowedError') {
+        showError('请在浏览器设置中允许麦克风权限以使用语音输入功能');
+      }
+    });
+}
+
+// 停止录音
+function stopRecording() {
+  recognition.stop();
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(100);
+  }
+}
+
+// 追加文本到输入框
+function appendToContentInput(text) {
+  const currentText = contentInput.value.trim();
+  if (currentText) {
+    contentInput.value = currentText + '\n' + text;
+  } else {
+    contentInput.value = text;
+  }
+}
+
+// 绑定事件
+function bindEvents() {
+  // 类型切换
+  typeTabs.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentType = btn.dataset.type;
+      typeTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
       
-      // 切换内容
-      const tabName = this.dataset.tab;
-      document.querySelectorAll('.tab-content').forEach(content => {
-        content.style.display = 'none';
-      });
-      document.getElementById('tab' + capitalize(tabName)).style.display = 'block';
+      if (navigator.vibrate) {
+        navigator.vibrate(10);
+      }
+    });
+  });
+  
+  // 录音按钮
+  recordBtn.addEventListener('click', toggleRecording);
+  
+  // 开始分析
+  analyzeBtn.addEventListener('click', doAnalyze);
+  
+  // 导航切换
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const page = item.dataset.page;
+      if (page === 'teacher') {
+        window.location.href = 'teacher.html';
+      } else if (page === 'child') {
+        window.location.href = 'child.html';
+      } else if (page === 'history') {
+        window.location.href = 'history.html';
+      } else if (page === 'class') {
+        window.location.href = 'class.html';
+      }
     });
   });
 }
 
-function capitalize(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-// ============ 开始分析流程 ============
-async function startAnalysis() {
-  App.vibrate();
+// 执行分析
+async function doAnalyze() {
+  const apiKey = apiKeyInput.value.trim();
+  const content = contentInput.value.trim();
   
-  // 验证视频
-  if (!videoFile) {
-    alert('请先上传视频');
+  // 验证输入
+  if (!apiKey) {
+    showError('请输入 DeepSeek API Key');
     return;
   }
   
-  // 验证 API Token
-  const apiToken = document.getElementById('apiToken').value;
-  if (!apiToken) {
-    alert('请输入 API Token');
+  if (!content) {
+    showError('请输入观察记录内容');
     return;
   }
   
-  // 验证工作流 ID
-  const workflowId = document.getElementById('workflowId').value;
-  if (!workflowId) {
-    alert('请输入工作流 ID');
-    return;
-  }
+  // 显示加载状态
+  hideError();
+  hideResult();
+  showLoading();
   
-  // 获取参数
-  const gameType = document.getElementById('gameTypeSelect').value;
-  const observationDate = document.getElementById('observationDate').value;
-  
-  // 显示进度
-  showProgress();
+  // 获取当前类型的系统提示词
+  const systemPrompt = currentType === 'teacher' ? TEACHER_SYSTEM_PROMPT : CHILD_SYSTEM_PROMPT;
+  const typeLabel = currentType === 'teacher' ? '教师评价' : '幼儿评价';
   
   try {
-    // 调用扣子工作流（直接上传视频）
-    updateProgress('正在上传视频...', '');
-    const result = await callCozeWorkflow(
-      apiToken,
-      workflowId,
-      videoFile,
-      gameType,
-      `观察日期: ${observationDate}, 幼儿ID: ${selectedChildId || '未指定'}`
-    );
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
     
-    // 展示结果
-    hideProgress();
-    displayResults(result);
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: content + '\n\n请根据以上指标进行分析。'
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000
+      }),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `请求失败 (${response.status})`);
+    }
+    
+    const data = await response.json();
+    const result = data.choices?.[0]?.message?.content;
+    
+    if (!result) {
+      throw new Error('未能获取分析结果');
+    }
+    
+    hideLoading();
+    showResult(result);
     
   } catch (error) {
-    hideProgress();
-    alert('分析失败: ' + error.message);
-    console.error(error);
-  }
-}
-
-// ============ 扣子工作流 API（直接上传视频） ============
-async function callCozeWorkflow(apiToken, workflowId, videoFile, gameType, observationNotes) {
-  // 创建 FormData 直接上传视频文件
-  const formData = new FormData();
-  formData.append('file', videoFile);  // 视频文件
-  formData.append('workflow_id', workflowId);
-  formData.append('parameters', JSON.stringify({
-    game_type: gameType,
-    observation_notes: observationNotes
-  }));
-  
-  updateProgress('正在等待 AI 分析...', '');
-  
-  const response = await fetch('https://api.coze.cn/v1/workflow/run', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + apiToken
-      // 注意：不设置 Content-Type，让浏览器自动设置 multipart/form-data
-    },
-    body: formData
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
-  }
-  
-  const data = await response.json();
-  
-  if (data.code !== 0) {
-    throw new Error(data.msg || '工作流执行失败');
-  }
-  
-  // 返回工作流结果
-  return data.data;
-}
-
-// ============ 进度显示 ============
-function showProgress() {
-  const progressSection = document.getElementById('progressSection');
-  const resultSection = document.getElementById('resultSection');
-  const analyzeBtn = document.getElementById('startAnalyzeBtn');
-  
-  if (progressSection) progressSection.style.display = 'flex';
-  if (resultSection) resultSection.style.display = 'none';
-  if (analyzeBtn) analyzeBtn.disabled = true;
-}
-
-function hideProgress() {
-  const progressSection = document.getElementById('progressSection');
-  const analyzeBtn = document.getElementById('startAnalyzeBtn');
-  
-  if (progressSection) progressSection.style.display = 'none';
-  if (analyzeBtn) analyzeBtn.disabled = false;
-}
-
-function updateProgress(text, detail) {
-  const progressText = document.getElementById('progressText');
-  const progressDetail = document.getElementById('progressDetail');
-  
-  if (progressText) progressText.textContent = text;
-  if (progressDetail) progressDetail.textContent = detail;
-}
-
-// ============ 结果展示 ============
-function displayResults(result) {
-  const resultSection = document.getElementById('resultSection');
-  if (resultSection) resultSection.style.display = 'block';
-  
-  // 解析工作流返回的内容
-  const output = result.outputs || result;
-  const content = typeof output === 'string' ? output : JSON.stringify(output);
-  
-  // 提取检核表和分析报告
-  const parts = extractReportParts(content);
-  
-  // 渲染检核表
-  renderChecklistTable(parts.checklist);
-  
-  // 渲染分析报告
-  const reportContent = document.getElementById('reportContent');
-  if (reportContent) {
-    reportContent.innerHTML = `<div class="report-text">${parts.report.replace(/\n/g, '<br>')}</div>`;
-  }
-  
-  // 渲染谈话建议
-  const suggestionsContent = document.getElementById('suggestionsContent');
-  if (suggestionsContent) {
-    suggestionsContent.innerHTML = `<div class="suggestions-text">${parts.suggestions.replace(/\n/g, '<br>')}</div>`;
-  }
-}
-
-function extractReportParts(content) {
-  let checklist = '';
-  let report = '';
-  let suggestions = '';
-  
-  // 查找 Markdown 表格（检核表）
-  const tableMatch = content.match(/(\|.+\|[\s\S]*?(?=\n\n|\n##|$))/);
-  if (tableMatch) {
-    checklist = tableMatch[0];
-  }
-  
-  // 查找"谈话建议"或"建议"部分
-  const suggestionsMatch = content.match(/(?:谈话建议|建议|Recommendations?)[:：]?\s*([\s\S]*?)(?=\n##|$)/i);
-  if (suggestionsMatch) {
-    suggestions = suggestionsMatch[1];
-  }
-  
-  // 剩余部分作为分析报告
-  if (tableMatch) {
-    report = content.replace(tableMatch[0], '').replace(suggestionsMatch ? suggestionsMatch[0] : '', '');
-  } else {
-    report = content;
-  }
-  
-  return { checklist, report, suggestions: suggestions || '暂无建议' };
-}
-
-// ============ Markdown 表格渲染 ============
-function markdownToHtmlTable(mdText) {
-  const lines = mdText.trim().split('\n');
-  if (lines.length < 2) return '';
-  
-  let html = '<thead><tr>';
-  let bodyRows = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line || !line.startsWith('|')) continue;
+    console.error('API Error:', error);
+    hideLoading();
     
-    const cells = line.split('|').filter(cell => cell.trim() !== '');
-    
-    if (i === 0) {
-      cells.forEach(cell => {
-        html += `<th>${escapeHtml(cell.trim())}</th>`;
-      });
-      html += '</tr></thead><tbody>';
-    } else if (line.includes('---')) {
-      continue;
+    if (error.name === 'AbortError') {
+      showError('请求超时，请检查网络连接后重试');
     } else {
-      const row = '<tr>' + cells.map(cell => `<td>${escapeHtml(cell.trim())}</td>`).join('') + '</tr>';
-      bodyRows.push(row);
+      showError(error.message || '分析失败，请检查API Key和网络连接');
+    }
+  }
+}
+
+// 显示加载状态
+function showLoading() {
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = '分析中...';
+  loadingSection.classList.remove('hidden');
+}
+
+// 隐藏加载状态
+function hideLoading() {
+  analyzeBtn.disabled = false;
+  analyzeBtn.textContent = '开始分析';
+  loadingSection.classList.add('hidden');
+}
+
+// 显示结果
+function showResult(content) {
+  const formatted = formatMarkdown(content);
+  resultContent.innerHTML = formatted;
+  resultArea.classList.remove('hidden');
+  resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// 隐藏结果
+function hideResult() {
+  resultArea.classList.add('hidden');
+}
+
+// 显示错误
+function showError(message) {
+  errorMessage.textContent = message;
+  errorSection.classList.remove('hidden');
+}
+
+// 隐藏错误
+function hideError() {
+  errorSection.classList.add('hidden');
+}
+
+// 格式化Markdown结果
+function formatMarkdown(text) {
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  const lines = html.split('\n');
+  let inTable = false;
+  let result = [];
+  
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+    
+    // 检测表格行
+    if (line.startsWith('|') && line.endsWith('|')) {
+      if (!inTable) {
+        inTable = true;
+        result.push('<div class="result-table-wrapper"><table class="result-table">');
+      }
+      
+      // 表头或数据行
+      if (line.includes('---')) {
+        continue;
+      }
+      
+      const cells = line.split('|').filter(c => c.trim());
+      const isHeader = cells.some(c => 
+        c.includes('维度') || c.includes('领域') || c.includes('评分') || 
+        c.includes('分析') || c.includes('发展') || c.includes('说明')
+      );
+      
+      if (isHeader) {
+        result.push('<thead><tr>');
+        cells.forEach(cell => {
+          result.push(`<th>${cell.trim()}</th>`);
+        });
+        result.push('</tr></thead><tbody>');
+      } else {
+        result.push('<tr>');
+        cells.forEach(cell => {
+          result.push(`<td>${cell.trim()}</td>`);
+        });
+        result.push('</tr>');
+      }
+    } else {
+      if (inTable) {
+        inTable = false;
+        result.push('</tbody></table></div>');
+      }
+      
+      if (line) {
+        if (line.startsWith('#')) {
+          const level = line.match(/^#+/)[0].length;
+          result.push(`<h${level}>${line.replace(/^#+\s*/, '')}</h${level}>`);
+        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+          result.push(`<li>${line.substring(2)}</li>`);
+        } else {
+          result.push(`<p>${line}</p>`);
+        }
+      }
     }
   }
   
-  html += bodyRows.join('') + '</tbody>';
-  return html;
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function renderChecklistTable(markdown) {
-  const table = document.getElementById('checklistTable');
-  if (!table) return;
-  
-  if (!markdown || markdown.trim() === '') {
-    table.innerHTML = '<tbody><tr><td>暂无检核表数据</td></tr></tbody>';
-    return;
+  if (inTable) {
+    result.push('</tbody></table></div>');
   }
   
-  const html = markdownToHtmlTable(markdown);
-  table.innerHTML = html;
+  return result.join('');
 }
+
+document.addEventListener('DOMContentLoaded', init);

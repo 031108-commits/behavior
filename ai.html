@@ -2,137 +2,93 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>AI 分析 - 建构游戏行为记录器</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4A90D9">
+  <title>AI分析</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="images/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>AI 视频分析</h1>
+  <div class="page">
+    <h1 class="page-title">AI分析</h1>
     
-    <!-- 幼儿选择器 + 日期选择器 -->
-    <div class="child-selector-section">
-      <div class="child-scroll" id="childScroll">
-        <!-- 幼儿头像将通过 JS 动态生成 -->
-      </div>
-      <div class="date-picker-row">
-        <input type="date" id="observationDate">
-      </div>
+    <!-- 评价类型切换 -->
+    <div class="type-tabs" id="typeTabs">
+      <button class="tab-btn active" data-type="teacher">教师评价分析</button>
+      <button class="tab-btn" data-type="child">幼儿评价分析</button>
     </div>
     
-    <!-- 视频上传区 -->
-    <div class="video-upload-section" id="videoUploadSection">
-      <div class="video-upload-area" id="videoUploadArea">
-        <div class="upload-icon">🎬</div>
-        <p class="upload-text">点击或拖拽上传视频</p>
-        <p class="upload-hint">支持 MP4、MOV、AVI 格式</p>
-        <input type="file" id="videoInput" accept="video/*" hidden>
-      </div>
-      <div class="video-preview" id="videoPreview" style="display: none;">
-        <video id="previewVideo" controls></video>
-        <button class="remove-video-btn" id="removeVideoBtn">×</button>
-      </div>
+    <!-- API Key输入 -->
+    <div class="api-section">
+      <input type="password" id="apiKeyInput" placeholder="请输入您的 DeepSeek API Key" autocomplete="off">
+      <p class="security-tip">API Key仅用于本次分析，关闭页面后不会保存</p>
     </div>
     
-    <!-- 分析参数区 -->
-    <div class="params-section">
-      <div class="param-card">
-        <label class="param-label">游戏类型</label>
-        <select id="gameTypeSelect" class="param-select">
-          <option value="建构游戏">建构游戏</option>
-          <option value="角色游戏">角色游戏</option>
-          <option value="其他">其他</option>
-        </select>
-      </div>
-      
-      <div class="param-card toggle-card">
-        <div class="toggle-header" id="toggleApiToken">
-          <span class="toggle-icon">🔑</span>
-          <span>设置 API Token</span>
-          <span class="toggle-arrow">▼</span>
-        </div>
-        <div class="toggle-content" id="apiTokenContent" style="display: none;">
-          <input type="password" id="apiToken" placeholder="输入 API Token" class="param-input">
-        </div>
-      </div>
-      
-      <div class="param-card toggle-card">
-        <div class="toggle-header" id="toggleWorkflowId">
-          <span class="toggle-icon">⚙️</span>
-          <span>设置工作流 ID</span>
-          <span class="toggle-arrow">▼</span>
-        </div>
-        <div class="toggle-content" id="workflowIdContent" style="display: none;">
-          <input type="text" id="workflowId" placeholder="输入工作流 ID" class="param-input">
-          <p class="param-hint">工作流 ID 可在扣子平台获取</p>
-        </div>
-      </div>
+    <!-- 录音按钮区域 -->
+    <div class="voice-section" id="voiceSection">
+      <button class="record-btn" id="recordBtn" title="点击开始录音">
+        <span class="mic-icon">🎤</span>
+      </button>
+      <span class="voice-status" id="voiceStatus"></span>
+    </div>
+    
+    <!-- 分析内容输入 -->
+    <div class="input-section">
+      <textarea id="contentInput" placeholder="请粘贴观察记录文本..."></textarea>
     </div>
     
     <!-- 开始分析按钮 -->
-    <button class="analyze-btn" id="startAnalyzeBtn">
-      <span class="btn-icon">🚀</span>
-      <span>开始分析</span>
+    <button class="analyze-btn" id="analyzeBtn">
+      开始分析
     </button>
     
-    <!-- 进度显示区 -->
-    <div class="progress-section" id="progressSection" style="display: none;">
-      <div class="progress-content">
-        <div class="spinner"></div>
-        <p class="progress-text" id="progressText">正在上传视频...</p>
-        <p class="progress-detail" id="progressDetail"></p>
+    <!-- 加载状态 -->
+    <div class="loading-section hidden" id="loadingSection">
+      <div class="loading-spinner"></div>
+      <span>AI正在分析中...</span>
+    </div>
+    
+    <!-- 分析结果 -->
+    <div class="result-section hidden" id="resultArea">
+      <div class="result-header">
+        <span>分析结果</span>
+      </div>
+      <div class="result-content" id="resultContent">
       </div>
     </div>
     
-    <!-- 结果展示区 -->
-    <div class="result-section" id="resultSection" style="display: none;">
-      <div class="result-tabs">
-        <button class="tab-btn active" data-tab="checklist">📊 检核表</button>
-        <button class="tab-btn" data-tab="report">📝 分析报告</button>
-        <button class="tab-btn" data-tab="suggestions">💬 谈话建议</button>
-      </div>
-      
-      <div class="tab-content" id="tabChecklist">
-        <div class="table-wrapper">
-          <table class="result-table" id="checklistTable">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-      
-      <div class="tab-content" id="tabReport" style="display: none;">
-        <div class="report-content" id="reportContent"></div>
-      </div>
-      
-      <div class="tab-content" id="tabSuggestions" style="display: none;">
-        <div class="suggestions-content" id="suggestionsContent"></div>
-      </div>
+    <!-- 错误提示 -->
+    <div class="error-section hidden" id="errorSection">
+      <div class="error-icon">⚠️</div>
+      <div class="error-message" id="errorMessage"></div>
     </div>
   </div>
   
-  <footer>
-    <a href="index.html" class="footer-btn">
-      <span class="footer-icon">📝</span>
-      <span>记录</span>
-    </a>
-    <a href="history.html" class="footer-btn">
-      <span class="footer-icon">📊</span>
+  <!-- 底部导航 -->
+  <nav class="bottom-nav">
+    <button class="nav-item" data-page="teacher">
+      <span class="icon">📝</span>
+      <span>教师评价</span>
+    </button>
+    <button class="nav-item" data-page="child">
+      <span class="icon">👶</span>
+      <span>幼儿评价</span>
+    </button>
+    <button class="nav-item" data-page="history">
+      <span class="icon">📊</span>
       <span>统计</span>
-    </a>
-    <a href="class.html" class="footer-btn">
-      <span class="footer-icon">👥</span>
-      <span>班级</span>
-    </a>
-    <a href="ai.html" class="footer-btn active">
-      <span class="footer-icon">🤖</span>
+    </button>
+    <button class="nav-item" data-page="class">
+      <span class="icon">👥</span>
+      <span>班级管理</span>
+    </button>
+    <button class="nav-item active" data-page="ai">
+      <span class="icon">🤖</span>
       <span>AI分析</span>
-    </a>
-  </footer>
+    </button>
+  </nav>
   
-  <script src="js/app.js"></script>
+  <script src="js/shared.js"></script>
   <script src="js/ai.js"></script>
 </body>
 </html>

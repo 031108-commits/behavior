@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4A90D9">
+  <title>幼儿评价（区域游戏观察）</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="page">
+    <h1 class="page-title">幼儿评价（区域游戏观察）</h1>
+    
+    <!-- 顶部区域 -->
+    <div class="header-section">
+      <div class="date-picker">
+        <label>日期：</label>
+        <input type="date" id="datePicker" value="">
+      </div>
+      
+      <!-- 幼儿选择区：横向滑动 -->
+      <div class="student-scroll" id="studentScroll">
+        <!-- 动态生成 -->
+      </div>
+      
+      <!-- 已评领域计数 -->
+      <div class="eval-count" id="evalCount">
+        今日已评领域：<span>0</span>/14
+      </div>
+    </div>
+    
+    <!-- 领域卡片列表 -->
+    <div class="domains-list" id="domainsList">
+      <!-- 动态生成 -->
+    </div>
+    
+    <!-- 添加自定义领域按钮 -->
+    <button class="add-domain-btn" id="addDomainBtn">
+      <span class="icon">+</span>
+      <span>添加自定义领域</span>
+    </button>
+    
+    <!-- 评价细则参考（可折叠） -->
+    <div class="reference-section" id="referenceSection">
+      <div class="reference-header" id="referenceHeader">
+        <span>📋 评价细则参考</span>
+        <span class="reference-arrow">▼</span>
+      </div>
+      <div class="reference-content" id="referenceContent">
+        <div class="table-scroll">
+          <table class="reference-table">
+            <thead>
+              <tr>
+                <th>领域</th>
+                <th>行为1<br>(1分)</th>
+                <th>行为2<br>(2分)</th>
+                <th>行为3<br>(3分)</th>
+                <th>行为4<br>(4分)</th>
+                <th>行为5<br>(5分)</th>
+              </tr>
+            </thead>
+            <tbody id="referenceTableBody">
+              <!-- 动态生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 自定义领域弹窗 -->
+  <div class="modal hidden" id="customDomainModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>添加自定义领域</span>
+        <button class="modal-close" id="closeModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>领域名称：</label>
+          <input type="text" id="customDomainName" placeholder="请输入领域名称" maxlength="20">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" id="cancelAddDomain">取消</button>
+        <button class="btn-confirm" id="confirmAddDomain">添加</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 长按描述弹窗 -->
+  <div class="modal hidden" id="descModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="descModalTitle">层级描述</span>
+        <button class="modal-close" id="closeDescModal">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="descModalText"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-confirm" id="closeDescBtn">知道了</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 底部导航 -->
+  <nav class="bottom-nav">
+    <button class="nav-item" data-page="teacher">
+      <span class="icon">📝</span>
+      <span>教师评价</span>
+    </button>
+    <button class="nav-item active" data-page="child">
+      <span class="icon">👶</span>
+      <span>幼儿评价</span>
+    </button>
+    <button class="nav-item" data-page="history">
+      <span class="icon">📊</span>
+      <span>统计</span>
+    </button>
+    <button class="nav-item" data-page="class">
+      <span class="icon">👥</span>
+      <span>班级管理</span>
+    </button>
+    <button class="nav-item" data-page="ai">
+      <span class="icon">🤖</span>
+      <span>AI分析</span>
+    </button>
+  </nav>
+  
+  <script src="js/shared.js"></script>
+  <script src="js/child.js"></script>
+</body>
+</html>

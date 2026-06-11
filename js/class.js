@@ -1,390 +1,431 @@
-// 初始化应用
-App.initApp();
+// 班级管理页面 JavaScript
 
-// DOM 元素
+const STORAGE_KEY = 'class_student_list';
+let students = [];
+let pendingImportData = [];
+let deleteTargetId = null;
+
+// DOM元素
 const studentList = document.getElementById('studentList');
+const noStudentTip = document.getElementById('noStudentTip');
 const addStudentBtn = document.getElementById('addStudentBtn');
-const addModal = document.getElementById('addModal');
-const studentName = document.getElementById('studentName');
-const studentGender = document.getElementById('studentGender');
-const cancelBtn = document.getElementById('cancelBtn');
-const confirmAddBtn = document.getElementById('confirmAddBtn');
+const importBtn = document.getElementById('importBtn');
 const fileInput = document.getElementById('fileInput');
-const backupBtn = document.getElementById('backupBtn');
-const restoreBtn = document.getElementById('restoreBtn');
-const dataManagementToggle = document.getElementById('dataManagementToggle');
-const dataManagementContent = document.getElementById('dataManagementContent');
+const navItems = document.querySelectorAll('.nav-item');
+
+// 弹窗元素
+const addModal = document.getElementById('addModal');
+const deleteModal = document.getElementById('deleteModal');
+const importModal = document.getElementById('importModal');
+const detailModal = document.getElementById('detailModal');
+
+// 初始化
+function init() {
+  loadStudents();
+  renderStudentList();
+  bindEvents();
+  
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('SW registered'))
+      .catch(err => console.log('SW registration failed:', err));
+  }
+}
 
 // 加载幼儿列表
 function loadStudents() {
-  const students = App.getClassStudents();
-  studentList.innerHTML = '';
-  
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    students = JSON.parse(saved);
+  } else {
+    // 默认名单
+    students = [
+      { id: 1, name: '张小明', icon: '👦' },
+      { id: 2, name: '李小萌', icon: '👧' },
+      { id: 3, name: '王天天', icon: '👦' }
+    ];
+    saveStudents();
+  }
+}
+
+// 保存幼儿列表
+function saveStudents() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+}
+
+// 渲染幼儿列表
+function renderStudentList() {
   if (students.length === 0) {
-    studentList.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">暂无幼儿信息</div>';
+    noStudentTip.classList.remove('hidden');
+    studentList.innerHTML = '';
     return;
   }
   
+  noStudentTip.classList.add('hidden');
+  
+  let html = '';
   students.forEach(student => {
-    const studentItem = document.createElement('div');
-    studentItem.className = 'student-list-item';
-    
-    studentItem.innerHTML = `
-      <div class="student-list-info">
-        <div class="student-list-gender">${student.gender === '男' ? '👦' : '👧'}</div>
-        <div>
-          <div>${student.name}</div>
-          <div style="font-size: 12px; color: #999;">ID: ${student.id}</div>
+    html += `
+      <div class="student-card">
+        <div class="student-info">
+          <span class="student-avatar">${student.icon}</span>
+          <span class="student-name">${student.name}</span>
+        </div>
+        <div class="student-actions">
+          <button class="action-icon detail-btn" data-id="${student.id}" title="查看详情">📊</button>
+          <button class="action-icon delete-btn" data-id="${student.id}" title="删除">🗑️</button>
         </div>
       </div>
-      <div class="student-list-actions">
-        <button class="detail-btn" data-id="${student.id}">📊</button>
-        <button class="delete-student-btn" data-id="${student.id}">🗑️</button>
-      </div>
     `;
-    
-    studentList.appendChild(studentItem);
   });
   
-  // 添加事件监听器
-  addEventListeners();
-}
-
-// 添加事件监听器
-function addEventListeners() {
-  // 详情按钮点击事件
-  document.querySelectorAll('.detail-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      App.vibrate();
-      const studentId = e.target.dataset.id;
-      window.location.href = `student-detail.html?studentId=${studentId}`;
+  studentList.innerHTML = html;
+  
+  // 绑定详情按钮
+  studentList.querySelectorAll('.detail-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      showStudentDetail(parseInt(btn.dataset.id));
     });
   });
   
-  // 删除按钮点击事件
-  document.querySelectorAll('.delete-student-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      App.vibrate();
-      const studentId = parseInt(e.target.dataset.id);
-      deleteStudent(studentId);
+  // 绑定删除按钮
+  studentList.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      showDeleteConfirm(parseInt(btn.dataset.id));
     });
   });
 }
 
-// 删除幼儿
-function deleteStudent(id) {
-  if (confirm('确定要删除这个幼儿吗？')) {
-    App.deleteStudent(id);
-    loadStudents();
+// 显示添加弹窗
+function showAddModal() {
+  document.getElementById('studentName').value = '';
+  document.querySelectorAll('.gender-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.gender === 'boy');
+  });
+  addModal.classList.remove('hidden');
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(15);
   }
 }
 
-// 打开添加模态框
-function openAddModal() {
-  App.vibrate();
-  studentName.value = '';
-  studentGender.value = '男';
-  addModal.style.display = 'flex';
-}
-
-// 关闭添加模态框
-function closeAddModal() {
-  addModal.style.display = 'none';
+// 隐藏添加弹窗
+function hideAddModal() {
+  addModal.classList.add('hidden');
 }
 
 // 添加幼儿
-function addStudent() {
-  const name = studentName.value.trim();
-  const gender = studentGender.value;
+function doAddStudent() {
+  const name = document.getElementById('studentName').value.trim();
+  const gender = document.querySelector('.gender-btn.active').dataset.gender;
   
   if (!name) {
-    alert('请输入姓名');
+    alert('请输入幼儿姓名');
     return;
   }
   
-  App.addStudent(name, gender);
-  closeAddModal();
-  loadStudents();
+  const icon = gender === 'boy' ? '👦' : '👧';
+  const newStudent = {
+    id: Date.now(),
+    name: name,
+    icon: icon
+  };
+  
+  students.push(newStudent);
+  saveStudents();
+  renderStudentList();
+  hideAddModal();
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(30);
+  }
+}
+
+// 显示删除确认
+function showDeleteConfirm(id) {
+  const student = students.find(s => s.id === id);
+  if (!student) return;
+  
+  deleteTargetId = id;
+  document.getElementById('deleteStudentName').textContent = student.name;
+  deleteModal.classList.remove('hidden');
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(15);
+  }
+}
+
+// 隐藏删除确认
+function hideDeleteConfirm() {
+  deleteModal.classList.add('hidden');
+  deleteTargetId = null;
+}
+
+// 确认删除
+function doDeleteStudent() {
+  if (!deleteTargetId) return;
+  
+  students = students.filter(s => s.id !== deleteTargetId);
+  saveStudents();
+  renderStudentList();
+  hideDeleteConfirm();
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(30);
+  }
+}
+
+// 显示幼儿详情
+function showStudentDetail(id) {
+  const student = students.find(s => s.id === id);
+  if (!student) return;
+  
+  // 收集该幼儿最近的评价记录
+  const recentRecords = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('child_records_')) {
+      const records = JSON.parse(localStorage.getItem(key) || '[]');
+      records.forEach(r => {
+        if (r.childId === id) {
+          recentRecords.push({
+            date: key.replace('child_records_', ''),
+            category: r.categoryName,
+            level: r.levelName,
+            score: r.score
+          });
+        }
+      });
+    }
+  }
+  
+  // 按日期排序，取最近10条
+  recentRecords.sort((a, b) => b.date.localeCompare(a.date));
+  const displayRecords = recentRecords.slice(0, 10);
+  
+  let html = `
+    <div class="detail-header">
+      <span class="detail-avatar">${student.icon}</span>
+      <span class="detail-name">${student.name}</span>
+    </div>
+    <div class="detail-stats">
+      <div class="stat-item">
+        <span class="stat-num">${recentRecords.length}</span>
+        <span class="stat-desc">条评价记录</span>
+      </div>
+    </div>
+  `;
+  
+  if (displayRecords.length > 0) {
+    html += '<div class="detail-records"><h4>最近评价</h4>';
+    displayRecords.forEach(r => {
+      html += `
+        <div class="record-item">
+          <span class="record-date">${r.date}</span>
+          <span class="record-domain">${r.category}</span>
+          <span class="record-level">${r.level} (${r.score}分)</span>
+        </div>
+      `;
+    });
+    html += '</div>';
+  } else {
+    html += '<div class="no-records-tip">暂无评价记录</div>';
+  }
+  
+  document.getElementById('detailBody').innerHTML = html;
+  detailModal.classList.remove('hidden');
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(15);
+  }
+}
+
+// 触发文件选择
+function triggerFileInput() {
+  fileInput.click();
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(10);
+  }
 }
 
 // 处理文件导入
-function handleFileImport(e) {
-  App.vibrate();
-  const file = e.target.files[0];
+function handleFileImport(event) {
+  const file = event.target.files[0];
   if (!file) return;
-  
-  const importMode = document.querySelector('input[name="importMode"]:checked').value;
   
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const data = new Uint8Array(e.target.result);
       const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet);
       
-      processImportData(jsonData, importMode);
-    } catch (error) {
-      // 尝试解析 CSV
-      try {
-        const text = e.target.result;
-        const lines = text.split('\n');
-        const headers = lines[0].split(',').map(h => h.trim());
-        const jsonData = [];
+      // 解析数据
+      const parsedStudents = [];
+      jsonData.forEach(row => {
+        // 尝试识别姓名和性别列
+        const name = row['姓名'] || row['name'] || row['Name'] || row['学生姓名'];
+        let gender = row['性别'] || row['gender'] || row['Gender'];
         
-        for (let i = 1; i < lines.length; i++) {
-          if (lines[i].trim()) {
-            const values = lines[i].split(',').map(v => v.trim());
-            const row = {};
-            headers.forEach((header, index) => {
-              row[header] = values[index];
-            });
-            jsonData.push(row);
+        if (name && typeof name === 'string' && name.trim()) {
+          // 解析性别
+          let icon = '👦';
+          if (gender) {
+            gender = String(gender).trim().toLowerCase();
+            if (gender.includes('女') || gender.includes('girl')) {
+              icon = '👧';
+            }
           }
+          
+          parsedStudents.push({
+            name: name.trim(),
+            icon: icon
+          });
         }
-        
-        processImportData(jsonData, importMode);
-      } catch (error) {
-        alert('文件解析失败，请检查文件格式');
+      });
+      
+      if (parsedStudents.length === 0) {
+        alert('未能解析到有效的幼儿数据，请检查文件格式');
+        return;
       }
+      
+      pendingImportData = parsedStudents;
+      document.getElementById('importCount').textContent = parsedStudents.length;
+      
+      // 显示预览
+      let previewHtml = '';
+      parsedStudents.slice(0, 5).forEach(s => {
+        previewHtml += `<span class="preview-item">${s.icon} ${s.name}</span>`;
+      });
+      if (parsedStudents.length > 5) {
+        previewHtml += `<span class="preview-item">...等${parsedStudents.length}人</span>`;
+      }
+      document.getElementById('importPreview').innerHTML = previewHtml;
+      
+      importModal.classList.remove('hidden');
+      
+    } catch (error) {
+      console.error('Parse error:', error);
+      alert('文件解析失败，请确保是有效的Excel或CSV文件');
     }
   };
   
   reader.readAsArrayBuffer(file);
+  // 重置input以允许选择相同文件
+  event.target.value = '';
 }
 
-// 处理导入数据
-function processImportData(data, importMode) {
-  if (data.length === 0) {
-    alert('文件中没有数据');
-    return;
+// 执行导入（追加）
+function doAppendImport() {
+  const newStudents = pendingImportData.map(s => ({
+    id: Date.now() + Math.random(),
+    name: s.name,
+    icon: s.icon
+  }));
+  
+  students = students.concat(newStudents);
+  saveStudents();
+  renderStudentList();
+  closeImportModal();
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(30);
   }
+}
+
+// 执行导入（覆盖）
+function doOverwriteImport() {
+  students = pendingImportData.map(s => ({
+    id: Date.now() + Math.random(),
+    name: s.name,
+    icon: s.icon
+  }));
   
-  // 识别列名
-  const firstRow = data[0];
-  let nameColumn = null;
-  let genderColumn = null;
+  saveStudents();
+  renderStudentList();
+  closeImportModal();
   
-  for (const key in firstRow) {
-    const lowerKey = key.toLowerCase();
-    if (lowerKey.includes('姓名') || lowerKey.includes('name')) {
-      nameColumn = key;
-    } else if (lowerKey.includes('性别') || lowerKey.includes('sex') || lowerKey.includes('gender')) {
-      genderColumn = key;
-    }
+  if (navigator.vibrate) {
+    navigator.vibrate(30);
   }
+}
+
+// 关闭导入弹窗
+function closeImportModal() {
+  importModal.classList.add('hidden');
+  pendingImportData = [];
+}
+
+// 隐藏详情弹窗
+function hideDetailModal() {
+  detailModal.classList.add('hidden');
+}
+
+// 绑定事件
+function bindEvents() {
+  // 添加按钮
+  addStudentBtn.addEventListener('click', showAddModal);
   
-  if (!nameColumn) {
-    alert('未找到姓名列');
-    return;
-  }
+  // 导入按钮
+  importBtn.addEventListener('click', triggerFileInput);
+  fileInput.addEventListener('change', handleFileImport);
   
-  // 处理数据
-  const students = [];
-  data.forEach(row => {
-    const name = row[nameColumn]?.trim();
-    if (name) {
-      let gender = '男';
-      if (genderColumn) {
-        const genderValue = row[genderColumn]?.toString().toLowerCase();
-        if (genderValue.includes('女') || genderValue.includes('female') || genderValue.includes('f')) {
-          gender = '女';
-        }
-      }
-      students.push({ name, gender });
-    }
+  // 添加弹窗
+  document.getElementById('closeAddModal').addEventListener('click', hideAddModal);
+  document.getElementById('cancelAdd').addEventListener('click', hideAddModal);
+  document.getElementById('confirmAdd').addEventListener('click', doAddStudent);
+  
+  // 性别选择
+  document.querySelectorAll('.gender-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
   });
   
-  if (students.length === 0) {
-    alert('未找到有效的幼儿数据');
-    return;
-  }
+  // 删除弹窗
+  document.getElementById('closeDeleteModal').addEventListener('click', hideDeleteConfirm);
+  document.getElementById('cancelDelete').addEventListener('click', hideDeleteConfirm);
+  document.getElementById('confirmDelete').addEventListener('click', doDeleteStudent);
   
-  // 导入数据
-  if (importMode === 'override') {
-    // 清空现有数据
-    localStorage.removeItem('class_student_list');
-  }
+  // 导入弹窗
+  document.getElementById('closeImportModal').addEventListener('click', closeImportModal);
+  document.getElementById('cancelImport').addEventListener('click', closeImportModal);
+  document.getElementById('appendImport').addEventListener('click', doAppendImport);
+  document.getElementById('overwriteImport').addEventListener('click', doOverwriteImport);
   
-  // 添加新数据
-  students.forEach(student => {
-    App.addStudent(student.name, student.gender);
+  // 详情弹窗
+  document.getElementById('closeDetailModal').addEventListener('click', hideDetailModal);
+  document.getElementById('closeDetailBtn').addEventListener('click', hideDetailModal);
+  
+  // 弹窗点击遮罩关闭
+  [addModal, deleteModal, importModal, detailModal].forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+      }
+    });
   });
   
-  alert(`成功导入 ${students.length} 个幼儿`);
-  loadStudents();
-}
-
-// 事件监听器
-addStudentBtn.addEventListener('click', openAddModal);
-cancelBtn.addEventListener('click', closeAddModal);
-confirmAddBtn.addEventListener('click', addStudent);
-fileInput.addEventListener('change', handleFileImport);
-
-// 点击模态框外部关闭
-addModal.addEventListener('click', (e) => {
-  if (e.target === addModal) {
-    closeAddModal();
-  }
-});
-
-// 初始化
-function init() {
-  loadStudents();
-}
-
-// 备份数据
-function backupData() {
-  App.vibrate();
-  
-  try {
-    // 收集所有数据
-    const data = {
-      version: '1.0',
-      exportDate: new Date().toLocaleString('zh-CN'),
-      data: {
-        studentList: App.getClassStudents(),
-        records: {}
+  // 导航切换
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const page = item.dataset.page;
+      if (page === 'teacher') {
+        window.location.href = 'teacher.html';
+      } else if (page === 'child') {
+        window.location.href = 'child.html';
+      } else if (page === 'history') {
+        window.location.href = 'history.html';
+      } else if (page === 'class') {
+        // 已在当前页
+      } else if (page === 'ai') {
+        window.location.href = 'ai.html';
       }
-    };
-    
-    // 收集所有记录
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key.startsWith('records_')) {
-        try {
-          data.data.records[key] = JSON.parse(localStorage.getItem(key));
-        } catch (e) {
-          console.error('Error parsing record:', key, e);
-        }
-      }
-    }
-    
-    // 转换为 JSON 字符串
-    const jsonString = JSON.stringify(data, null, 2);
-    
-    // 创建 Blob 并下载
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `建构游戏备份_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '')}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    alert('备份成功');
-  } catch (error) {
-    console.error('Backup error:', error);
-    alert('备份失败，请重试');
-  }
-}
-
-// 恢复数据
-function restoreData() {
-  App.vibrate();
-  
-  // 创建文件输入
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.json,application/json';
-  fileInput.style.display = 'none';
-  
-  fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const jsonString = e.target.result;
-        const backupData = JSON.parse(jsonString);
-        
-        // 验证数据格式
-        if (!backupData.version || !backupData.data) {
-          throw new Error('无效的备份文件格式');
-        }
-        
-        // 确认恢复
-        if (confirm('确定要恢复数据吗？当前所有数据将被覆盖。')) {
-          // 清空旧记录
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key.startsWith('records_')) {
-              localStorage.removeItem(key);
-            }
-          }
-          
-          // 恢复幼儿名单
-          if (backupData.data.studentList) {
-            localStorage.setItem('class_student_list', JSON.stringify(backupData.data.studentList));
-          }
-          
-          // 恢复记录
-          if (backupData.data.records) {
-            for (const key in backupData.data.records) {
-              if (key.startsWith('records_')) {
-                localStorage.setItem(key, JSON.stringify(backupData.data.records[key]));
-              }
-            }
-          }
-          
-          alert('恢复成功');
-          // 刷新页面
-          window.location.reload();
-        }
-      } catch (error) {
-        console.error('Restore error:', error);
-        alert('恢复失败，请检查文件格式');
-      }
-    };
-    
-    reader.readAsText(file);
+    });
   });
-  
-  document.body.appendChild(fileInput);
-  fileInput.click();
-  document.body.removeChild(fileInput);
 }
 
-// 切换数据管理区域
-function toggleDataManagement() {
-  App.vibrate();
-  if (dataManagementContent.style.display === 'none') {
-    dataManagementContent.style.display = 'block';
-  } else {
-    dataManagementContent.style.display = 'block'; // 保持显示，不折叠
-  }
-}
-
-// 事件监听器
-addStudentBtn.addEventListener('click', openAddModal);
-cancelBtn.addEventListener('click', closeAddModal);
-confirmAddBtn.addEventListener('click', addStudent);
-fileInput.addEventListener('change', handleFileImport);
-if (backupBtn) {
-  backupBtn.addEventListener('click', backupData);
-}
-if (restoreBtn) {
-  restoreBtn.addEventListener('click', restoreData);
-}
-if (dataManagementToggle) {
-  dataManagementToggle.addEventListener('click', toggleDataManagement);
-}
-
-// 点击模态框外部关闭
-addModal.addEventListener('click', (e) => {
-  if (e.target === addModal) {
-    closeAddModal();
-  }
-});
-
-// 初始化
-function init() {
-  loadStudents();
-}
-
-// 启动应用
-init();
+document.addEventListener('DOMContentLoaded', init);
