@@ -1,6 +1,5 @@
 // 班级管理页面 JavaScript
 
-const STORAGE_KEY = 'class_student_list';
 let students = [];
 let pendingImportData = [];
 let deleteTargetId = null;
@@ -32,25 +31,14 @@ function init() {
   }
 }
 
-// 加载幼儿列表
+// 加载幼儿列表（使用shared.js的getStudentList）
 function loadStudents() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    students = JSON.parse(saved);
-  } else {
-    // 默认名单
-    students = [
-      { id: 1, name: '张小明', icon: '👦' },
-      { id: 2, name: '李小萌', icon: '👧' },
-      { id: 3, name: '王天天', icon: '👦' }
-    ];
-    saveStudents();
-  }
+  students = getStudentList();
 }
 
-// 保存幼儿列表
+// 保存幼儿列表（使用shared.js的saveStudentList）
 function saveStudents() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+  saveStudentList(students);
 }
 
 // 渲染幼儿列表

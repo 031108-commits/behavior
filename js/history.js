@@ -5,6 +5,7 @@ let currentTeacher = 'A';
 let currentChildId = 'all';
 let students = [];
 let queryResults = [];
+let heatmapChart = null;
 
 // DOM元素
 const typeTabs = document.getElementById('typeTabs');
@@ -18,6 +19,10 @@ const tableHead = document.getElementById('tableHead');
 const tableBody = document.getElementById('tableBody');
 const noDataTip = document.getElementById('noDataTip');
 const exportBtn = document.getElementById('exportBtn');
+const heatmapBtn = document.getElementById('heatmapBtn');
+const heatmapWrapper = document.getElementById('heatmapWrapper');
+const heatmapContainer = document.getElementById('heatmapContainer');
+const heatmapTitle = document.getElementById('heatmapTitle');
 const navItems = document.querySelectorAll('.nav-item');
 const childDetailModal = document.getElementById('childDetailModal');
 
@@ -208,6 +213,9 @@ function queryChildData(dates) {
 
 // 渲染表格
 function renderTable() {
+  // 查询新数据后隐藏热力图
+  hideHeatmap();
+  
   if (!queryResults.dates || queryResults.dates.length === 0) {
     noDataTip.classList.remove('hidden');
     tableBody.innerHTML = '<tr><td>请选择条件后点击查询</td></tr>';
@@ -262,18 +270,34 @@ function renderTable() {
 // 导出CSV
 function exportCSV() {
   if (!queryResults.dates || queryResults.dates.length === 0) {
-    alert('请先查询数据');
+    alert('暂无数据可导出');
     return;
   }
   
-  const typeLabel = currentType === 'teacher' ? '教师评价' : '幼儿评价';
+  // 检查是否有数据
+  let hasData = false;
+  for (const dim in queryResults.data) {
+    for (const date of queryResults.dates) {
+      if (queryResults.data[dim][date] > 0) {
+        hasData = true;
+        break;
+      }
+    }
+    if (hasData) break;
+  }
+  
+  if (!hasData) {
+    alert('暂无数据可导出');
+    return;
+  }
+  
   const dimensions = currentType === 'teacher' ? TEACHER_DIMENSIONS : CHILD_DOMAINS;
   
   // 构建CSV
   let csv = '\uFEFF'; // BOM for UTF-8
   
   // 表头
-  csv += `领域/日期,${queryResults.dates.join(',')}\n`;
+  csv += `行为\\日期,${queryResults.dates.join(',')}\n`;
   
   // 数据行
   dimensions.forEach(dim => {
@@ -298,6 +322,149 @@ function exportCSV() {
   }
 }
 
+// 隐藏热力图
+function hideHeatmap() {
+  heatmapWrapper.style.display = 'none';
+  if (heatmapChart) {
+    heatmapChart.dispose();
+    heatmapChart = null;
+  }
+}
+
+// 生成热力图
+function generateHeatmap() {
+  if (!queryResults.dates || queryResults.dates.length === 0) {
+    alert('暂无数据');
+    return;
+  }
+  
+  // 检查是否有数据
+  let hasData = false;
+  let maxValue = 0;
+  for (const dim in queryResults.data) {
+    for (const date of queryResults.dates) {
+      const val = queryResults.data[dim][date];
+      if (val > 0) {
+        hasData = true;
+        if (val > maxValue) maxValue = val;
+      }
+    }
+  }
+  
+  if (!hasData) {
+    alert('暂无数据');
+    return;
+  }
+  
+  if (navigator.vibrate) {
+    navigator.vibrate(20);
+  }
+  
+  // 显示热力图容器
+  heatmapWrapper.style.display = 'block';
+  
+  // 设置标题
+  const titleText = currentType === 'teacher' ? '教师评价热力图' : '幼儿评价热力图';
+  heatmapTitle.textContent = titleText;
+  
+  // 准备数据
+  const dimensions = queryResults.dimensions;
+  const dates = queryResults.dates.map(d => d.substring(5)); // MM-DD格式
+  
+  // 构建热力图数据 [日期索引, 维度索引, 值]
+  const heatmapData = [];
+  dates.forEach((date, dateIndex) => {
+    dimensions.forEach((dim, dimIndex) => {
+      const value = queryResults.data[dim][queryResults.dates[dateIndex]];
+      heatmapData.push([dateIndex, dimIndex, value]);
+    });
+  });
+  
+  // 销毁旧图表
+  if (heatmapChart) {
+    heatmapChart.dispose();
+  }
+  
+  // 创建图表
+  heatmapChart = echarts.init(heatmapContainer);
+  
+  const option = {
+    title: {
+      text: titleText,
+      left: 'center',
+      textStyle: {
+        fontSize: 14,
+        color: '#333'
+      }
+    },
+    tooltip: {
+      position: 'top',
+      formatter: function(params) {
+        return `${dates[params.data[0]]}<br/>${dimensions[params.data[1]]}: ${params.data[2]}`;
+      }
+    },
+    grid: {
+      left: '10%',
+      right: '10%',
+      top: '15%',
+      bottom: '15%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      splitArea: {
+        show: true
+      },
+      axisLabel: {
+        fontSize: 10,
+        rotate: 45
+      }
+    },
+    yAxis: {
+      type: 'category',
+      data: dimensions,
+      splitArea: {
+        show: true
+      },
+      axisLabel: {
+        fontSize: 10
+      }
+    },
+    visualMap: {
+      min: 0,
+      max: maxValue > 0 ? maxValue : 10,
+      calculable: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: '0%',
+      inRange: {
+        color: ['#e0f3f8', '#abd9e9', '#74add1', '#4575b4', '#313695']
+      }
+    },
+    series: [{
+      name: '评分',
+      type: 'heatmap',
+      data: heatmapData,
+      label: {
+        show: true,
+        fontSize: 10
+      },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      }
+    }]
+  };
+  
+  heatmapChart.setOption(option);
+  
+  // 滚动到热力图位置
+  heatmapWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // 绑定事件
 function bindEvents() {
   // 类型切换
@@ -307,6 +474,9 @@ function bindEvents() {
       typeTabs.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       updateSelectorVisibility();
+      
+      // 切换类型后隐藏热力图
+      hideHeatmap();
       
       if (navigator.vibrate) {
         navigator.vibrate(10);
@@ -332,6 +502,9 @@ function bindEvents() {
   
   // 导出按钮
   exportBtn.addEventListener('click', exportCSV);
+  
+  // 热力图按钮
+  heatmapBtn.addEventListener('click', generateHeatmap);
   
   // 导航切换
   navItems.forEach(item => {

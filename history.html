@@ -7,6 +7,7 @@
   <title>统计</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 </head>
 <body>
   <div class="page">
@@ -57,7 +58,10 @@
     <div class="table-section">
       <div class="table-header">
         <span>评价统计表</span>
-        <button class="export-btn" id="exportBtn">导出CSV</button>
+        <div class="table-actions">
+          <button class="export-btn" id="exportBtn">导出CSV</button>
+          <button class="heatmap-btn" id="heatmapBtn">📊 生成热力图</button>
+        </div>
       </div>
       <div class="table-scroll">
         <table class="stats-table" id="statsTable">
@@ -69,6 +73,14 @@
           </tbody>
         </table>
       </div>
+    </div>
+    
+    <!-- 热力图容器 -->
+    <div class="heatmap-wrapper" id="heatmapWrapper" style="display:none;">
+      <div class="heatmap-header">
+        <span id="heatmapTitle">热力图</span>
+      </div>
+      <div id="heatmapContainer" style="width:100%;height:350px;"></div>
     </div>
     
     <!-- 无数据提示 -->

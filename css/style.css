@@ -1356,6 +1356,11 @@ html, body {
   color: var(--text);
 }
 
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .export-btn {
   padding: 6px 12px;
   background: var(--success);
@@ -1367,6 +1372,20 @@ html, body {
 }
 
 .export-btn:active {
+  opacity: 0.8;
+}
+
+.heatmap-btn {
+  padding: 6px 12px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.heatmap-btn:active {
   opacity: 0.8;
 }
 
@@ -1424,6 +1443,29 @@ html, body {
 .no-data-tip span {
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+/* 热力图容器 */
+.heatmap-wrapper {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.heatmap-header {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+#heatmapContainer {
+  min-width: 400px;
 }
 
 /* ========== 班级管理页面(class.html) 样式 ========== */

@@ -16,12 +16,12 @@ function getTodayDate() {
  */
 function getStudentList() {
   const defaultList = [
-    { id: 1, name: '张小明', icon: '👦' },
-    { id: 2, name: '李小萌', icon: '👧' },
-    { id: 3, name: '王天天', icon: '👦' }
+    { id: 1, name: '张小明', gender: '男', icon: '👦' },
+    { id: 2, name: '李小萌', gender: '女', icon: '👧' },
+    { id: 3, name: '王天天', gender: '男', icon: '👦' }
   ];
   
-  const stored = localStorage.getItem('student_list');
+  const stored = localStorage.getItem('class_student_list');
   if (stored) {
     try {
       return JSON.parse(stored);
@@ -36,7 +36,7 @@ function getStudentList() {
  * 保存幼儿名单
  */
 function saveStudentList(list) {
-  localStorage.setItem('student_list', JSON.stringify(list));
+  localStorage.setItem('class_student_list', JSON.stringify(list));
 }
 
 /**
